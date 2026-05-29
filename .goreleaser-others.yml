@@ -13,21 +13,15 @@ builds:
     env:
       - CGO_ENABLED=0
     goos:
-      - darwin
       - linux
       - windows
     goarch:
       - amd64
       - arm64
+    flags:
+      - -trimpath
     ldflags:
       - -s -w -X main.version={{ .Version }}
-
-universal_binaries:
-  - id: osquery-extension-universal
-    ids:
-      - osquery-extension
-    name_template: osquery-extension.ext
-    replace: true
 
 archives:
   - id: default
@@ -48,22 +42,13 @@ archives:
         dst: licenses
         strip_parent: true
 
+# Checksums and the GitHub release itself are produced by the final
+# release job after combining artifacts from build-darwin + build-others.
 checksum:
-  name_template: checksums.txt
+  disable: true
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
-changelog:
-  use: github
-  sort: asc
-  filters:
-    exclude:
-      - "^docs:"
-      - "^test:"
-      - "^chore:"
-      - "Merge pull request"
-
 release:
-  draft: false
-  prerelease: auto
+  disable: true

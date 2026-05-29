@@ -1,0 +1,63 @@
+version: 2
+
+project_name: osquery-extension
+
+# Render the Info.plist template with the resolved version before each
+# build. The result is embedded into the Mach-O binary as a
+# __TEXT,__info_plist section via -sectcreate. The rendered file is
+# .gitignored.
+before:
+  hooks:
+    - sh -c 'sed "s/__VERSION__/{{ .Version }}/g" Info.plist > Info.plist.rendered'
+
+builds:
+  - id: osquery-extension
+    main: ./
+    binary: osquery-extension.ext
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+      - -linkmode external
+      - -extldflags '-sectcreate __TEXT __info_plist Info.plist.rendered'
+
+universal_binaries:
+  - id: osquery-extension-universal
+    ids:
+      - osquery-extension
+    name_template: osquery-extension.ext
+    replace: true
+
+archives:
+  - id: default
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.gz
+    files:
+      - LICENSE.txt
+      - README.md
+      - src: tables/fleetdm/LICENSE
+        dst: licenses
+        strip_parent: true
+      - src: tables/fleetdm/ATTRIBUTION.md
+        dst: licenses
+        strip_parent: true
+
+# Checksums and the GitHub release itself are produced by the final
+# release job after combining artifacts from build-darwin + build-others.
+checksum:
+  disable: true
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+release:
+  disable: true

@@ -49,12 +49,25 @@ produces correctly-named archives automatically.
 ## Releases
 
 Pushing a tag matching `v*` triggers
-[.github/workflows/release.yml](.github/workflows/release.yml), which runs
-[GoReleaser](https://goreleaser.com/) per [.goreleaser.yml](.goreleaser.yml).
+[.github/workflows/release.yml](.github/workflows/release.yml). The pipeline
+runs three jobs in parallel where possible:
+
+- `build-darwin` runs on `macos-latest` with [`.goreleaser-darwin.yml`](.goreleaser-darwin.yml).
+  Native `clang` lets us embed [`Info.plist`](Info.plist) directly into the
+  Mach-O binary as a `__TEXT,__info_plist` section. The two arch slices are
+  combined into a single universal binary.
+- `build-others` runs on `ubuntu-latest` with [`.goreleaser-others.yml`](.goreleaser-others.yml).
+  Pure-Go cross-compilation for linux and windows on both amd64 and arm64.
+- `release` collects the artifacts from both build jobs, generates a combined
+  `checksums.txt`, and creates the GitHub release with auto-generated notes.
+
+The workflow also supports `workflow_dispatch` for manual runs: leave the
+`tag` input empty for a snapshot dry-run that uploads artifacts without
+creating a release, or pass an existing tag to publish.
+
 Artifacts produced for each release:
 
-- `osquery-extension_<version>_darwin_amd64.tar.gz`
-- `osquery-extension_<version>_darwin_arm64.tar.gz`
+- `osquery-extension_<version>_darwin_all.tar.gz` (universal: x86_64 + arm64)
 - `osquery-extension_<version>_linux_amd64.tar.gz`
 - `osquery-extension_<version>_linux_arm64.tar.gz`
 - `osquery-extension_<version>_windows_amd64.zip`
