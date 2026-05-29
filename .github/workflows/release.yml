@@ -68,14 +68,24 @@ jobs:
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
+          # Grant every code-signing tool we use (and a few that codesign
+          # may shell out to internally) access to the imported keys. Using
+          # one -T per tool instead of -A keeps the ACL narrow but still
+          # avoids the GUI "Allow access?" prompt that would otherwise
+          # deadlock pkgbuild on a headless runner.
           import_cert() {
-            local b64="$1" pw="$2" tool="$3" path="$RUNNER_TEMP/cert.p12"
+            local b64="$1" pw="$2" path="$RUNNER_TEMP/cert.p12"
             printf '%s' "$b64" | base64 --decode > "$path"
-            security import "$path" -k "$KEYCHAIN_PATH" -P "$pw" -T "$tool"
+            security import "$path" -k "$KEYCHAIN_PATH" -P "$pw" \
+              -T /usr/bin/codesign \
+              -T /usr/bin/pkgbuild \
+              -T /usr/bin/productbuild \
+              -T /usr/bin/productsign \
+              -T /usr/bin/security
             rm "$path"
           }
-          import_cert "$APPLE_DEVID_CERT_P12"     "$APPLE_DEVID_CERT_PASSWORD"     /usr/bin/codesign
-          import_cert "$APPLE_INSTALLER_CERT_P12" "$APPLE_INSTALLER_CERT_PASSWORD" /usr/bin/productbuild
+          import_cert "$APPLE_DEVID_CERT_P12"     "$APPLE_DEVID_CERT_PASSWORD"
+          import_cert "$APPLE_INSTALLER_CERT_P12" "$APPLE_INSTALLER_CERT_PASSWORD"
 
           # shellcheck disable=SC2046  # intentional word-splitting: each existing keychain path becomes a separate arg
           security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
