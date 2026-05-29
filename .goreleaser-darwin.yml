@@ -39,6 +39,14 @@ universal_binaries:
       - osquery-extension
     name_template: osquery-extension.ext
     replace: true
+    # Codesign the merged universal binary with the Developer ID
+    # Application identity loaded into the runner's temporary keychain
+    # by the workflow. --options runtime enables the hardened runtime,
+    # required for notarization. The identifier is read from the
+    # embedded Info.plist's CFBundleIdentifier.
+    hooks:
+      post:
+        - cmd: sh -c 'codesign --sign "$APPLE_DEVID_IDENTITY" --options runtime --timestamp --force "{{ .Path }}"'
 
 archives:
   - id: default

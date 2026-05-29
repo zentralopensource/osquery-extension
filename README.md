@@ -55,7 +55,8 @@ runs three jobs in parallel where possible:
 - `build-darwin` runs on `macos-latest` with [`.goreleaser-darwin.yml`](.goreleaser-darwin.yml).
   Native `clang` lets us embed [`Info.plist`](Info.plist) directly into the
   Mach-O binary as a `__TEXT,__info_plist` section. The two arch slices are
-  combined into a single universal binary.
+  combined into a single universal binary, which is then codesigned with a
+  Developer ID Application identity and submitted to Apple's notary service.
 - `build-others` runs on `ubuntu-latest` with [`.goreleaser-others.yml`](.goreleaser-others.yml).
   Pure-Go cross-compilation for linux and windows on both amd64 and arm64.
 - `release` collects the artifacts from both build jobs, generates a combined
@@ -64,6 +65,35 @@ runs three jobs in parallel where possible:
 The workflow also supports `workflow_dispatch` for manual runs: leave the
 `tag` input empty for a snapshot dry-run that uploads artifacts without
 creating a release, or pass an existing tag to publish.
+
+### Apple signing secrets
+
+The darwin job loads its signing material from 1Password at run time via
+the [`1password/load-secrets-action`](https://www.1password.dev/ci-cd/github-actions).
+The repo must have a single GitHub Actions secret `OP_SERVICE_ACCOUNT_TOKEN`
+holding a 1Password service-account token with read access to the items
+below. The op:// paths are hard-coded in the workflow — adjust them there
+if your vault/item naming differs.
+
+**Vault `CI`, item `Developer ID Application`** (signing identity):
+
+| field         | content                                                              |
+|---------------|----------------------------------------------------------------------|
+| `certificate` | base64-encoded contents of the exported `.p12` certificate           |
+| `password`    | passphrase for the `.p12`                                            |
+| `identity`    | full identity name, e.g. `Developer ID Application: Foo (TEAMID)`    |
+
+**Vault `CI`, item `App Store Connect API Key`** (notarization):
+
+| field       | content                                              |
+|-------------|------------------------------------------------------|
+| `key_id`    | 10-character key identifier from App Store Connect   |
+| `issuer_id` | issuer UUID from App Store Connect                   |
+| `key`       | full contents of the `.p8` private key file          |
+
+The cert is imported into a temporary keychain that's discarded at the end
+of the job. `notarytool` runs in `--wait` mode — a release will fail if
+notarization is rejected.
 
 Artifacts produced for each release:
 
