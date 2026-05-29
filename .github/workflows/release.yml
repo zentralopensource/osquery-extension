@@ -123,15 +123,37 @@ jobs:
           codesign --verify --strict --verbose=2 \
             "$PKG_ROOT/usr/local/zentral/osquery/extensions/osquery-extension.ext"
 
+          # Two-stage build to produce a distribution package (the format
+          # Installer.app and Gatekeeper expect for redistributable .pkg
+          # files) rather than a bare component package:
+          #   1. pkgbuild emits an unsigned component .pkg with our payload.
+          #   2. productbuild --synthesize derives a Distribution.xml from
+          #      that component, capturing identifier + version.
+          #   3. productbuild --distribution wraps the component, signs the
+          #      result with the Installer identity, and writes the final
+          #      .pkg we ship.
+          COMPONENT_PKG="$RUNNER_TEMP/component.pkg"
+          DISTRIBUTION_XML="$RUNNER_TEMP/distribution.xml"
+
           pkgbuild \
             --root "$PKG_ROOT" \
             --identifier com.zentral.osquery-extension \
             --version "$VERSION" \
             --install-location / \
             --scripts pkg/scripts \
+            "$COMPONENT_PKG"
+          rm -rf "$PKG_ROOT"
+
+          productbuild --synthesize \
+            --package "$COMPONENT_PKG" \
+            "$DISTRIBUTION_XML"
+
+          productbuild \
+            --distribution "$DISTRIBUTION_XML" \
+            --package-path "$RUNNER_TEMP" \
             --sign "$APPLE_INSTALLER_IDENTITY" \
             "$PKG_PATH"
-          rm -rf "$PKG_ROOT"
+          rm -f "$COMPONENT_PKG" "$DISTRIBUTION_XML"
 
           # Submit to the notary service.
           KEY_PATH="$RUNNER_TEMP/AuthKey.p8"

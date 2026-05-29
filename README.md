@@ -126,9 +126,22 @@ The `.pkg` writes the following paths:
 | `/usr/local/zentral/osquery/extensions.load`                     | [`pkg/extensions.load`](pkg/extensions.load) — tells `osqueryd` which extensions to autoload |
 
 A no-op postinstall script lives at [`pkg/scripts/postinstall`](pkg/scripts/postinstall);
-future logic (e.g. signalling osqueryd to reload) can be added there. The
-`.pkg` itself is built and signed by the `Build, sign, and notarize macOS
-installer (.pkg)` step in the release workflow.
+future logic (e.g. signalling osqueryd to reload) can be added there.
+
+The `.pkg` is a **distribution package** (not a bare component package).
+Per the macOS `pkgbuild(1)` man page, a component package "is typically
+incorporated into a product archive, along with a 'distribution' and
+localized resources, using productbuild(1)" — distribution packages also
+leave room to add installer UI (welcome / license screens, OS-version
+requirements, host architecture restrictions) by swapping the synthesized
+`Distribution.xml` for a hand-written one later. The release workflow
+runs `pkgbuild` to produce an unsigned component package, derives a
+`Distribution.xml` from it via `productbuild --synthesize`, then runs
+`productbuild --distribution --sign` to produce the final signed
+installer; the component is intentionally left unsigned because (also
+from `pkgbuild(1)`) "if you are going to create a signed product with
+the resulting package, using productbuild(1), there is no reason to
+sign the individual package."
 
 ## Third-party code
 
