@@ -11,7 +11,12 @@ import (
 	"github.com/zentralopensource/osquery-extension/tables/fleetdm/orbit/pkg/table/mcp_listening_servers"
 )
 
-var name = "zentral_extension"
+var (
+	name = "zentral_extension"
+	// version is overridden at build time via `-X main.version=...` ldflag
+	// (see .goreleaser.yml). Defaults to "dev" for local builds.
+	version = "dev"
+)
 
 func main() {
 	var (

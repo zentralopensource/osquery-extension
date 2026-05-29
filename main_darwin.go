@@ -21,6 +21,9 @@ import (
 )
 
 func platformPlugins(socket string) []osquery.OsqueryPlugin {
+	sofaOpts := []sofa.Option{
+		sofa.WithUserAgent("zentral-osquery-extension/" + version),
+	}
 	return []osquery.OsqueryPlugin{
 		table.NewPlugin("falconctl", falconctl.FalconctlColumns(), falconctl.FalconctlGenerate),
 		table.NewPlugin("google_chrome_profiles", chromeuserprofiles.GoogleChromeProfilesColumns(), chromeuserprofiles.GoogleChromeProfilesGenerate),
@@ -28,10 +31,10 @@ func platformPlugins(socket string) []osquery.OsqueryPlugin {
 		table.NewPlugin("macos_profiles", macos_profiles.MacOSProfilesColumns(), macos_profiles.MacOSProfilesGenerate),
 		table.NewPlugin("mdm", mdm.MDMInfoColumns(), mdm.MDMInfoGenerate),
 		table.NewPlugin("sofa_security_release_info", sofa.SofaSecurityReleaseInfoColumns(), func(ctx context.Context, queryContext table.QueryContext) ([]map[string]string, error) {
-			return sofa.SofaSecurityReleaseInfoGenerate(ctx, queryContext, socket)
+			return sofa.SofaSecurityReleaseInfoGenerate(ctx, queryContext, socket, sofaOpts...)
 		}),
 		table.NewPlugin("sofa_unpatched_cves", sofa.SofaUnpatchedCVEsColumns(), func(ctx context.Context, queryContext table.QueryContext) ([]map[string]string, error) {
-			return sofa.SofaUnpatchedCVEsGenerate(ctx, queryContext, socket)
+			return sofa.SofaUnpatchedCVEsGenerate(ctx, queryContext, socket, sofaOpts...)
 		}),
 		table.NewPlugin("macadmins_unified_log", unifiedlog.UnifiedLogColumns(), unifiedlog.UnifiedLogGenerate),
 		table.NewPlugin("wifi_network", wifi_network.WifiNetworkColumns(), func(ctx context.Context, queryContext table.QueryContext) ([]map[string]string, error) {
