@@ -75,13 +75,21 @@ holding a 1Password service-account token with read access to the items
 below. The op:// paths are hard-coded in the workflow — adjust them there
 if your vault/item naming differs.
 
-**Vault `CI`, item `Developer ID Application`** (signing identity):
+**Vault `CI`, item `Developer ID Application`** (signs the Mach-O binary):
 
 | field         | content                                                              |
 |---------------|----------------------------------------------------------------------|
 | `certificate` | base64-encoded contents of the exported `.p12` certificate           |
 | `password`    | passphrase for the `.p12`                                            |
 | `identity`    | full identity name, e.g. `Developer ID Application: Foo (TEAMID)`    |
+
+**Vault `CI`, item `Developer ID Installer`** (signs the `.pkg` installer):
+
+| field         | content                                                              |
+|---------------|----------------------------------------------------------------------|
+| `certificate` | base64-encoded contents of the exported `.p12` certificate           |
+| `password`    | passphrase for the `.p12`                                            |
+| `identity`    | full identity name, e.g. `Developer ID Installer: Foo (TEAMID)`      |
 
 **Vault `CI`, item `App Store Connect API Key`** (notarization):
 
@@ -97,15 +105,30 @@ notarization is rejected.
 
 Artifacts produced for each release:
 
-- `osquery-extension_<version>_darwin_all.tar.gz` (universal: x86_64 + arm64)
+- `osquery-extension_<version>_darwin.pkg` (signed + notarized + stapled installer)
+- `osquery-extension_<version>_darwin_all.tar.gz` (universal binary: x86_64 + arm64)
 - `osquery-extension_<version>_linux_amd64.tar.gz`
 - `osquery-extension_<version>_linux_arm64.tar.gz`
 - `osquery-extension_<version>_windows_amd64.zip`
 - `osquery-extension_<version>_windows_arm64.zip`
 - `checksums.txt`
 
-Each archive ships the binary, project `LICENSE.txt`, `README.md`, and (in
-`licenses/`) the vendored fleet `LICENSE` and `ATTRIBUTION.md`.
+Each tarball/zip ships the binary, project `LICENSE.txt`, `README.md`, and
+(in `licenses/`) the vendored fleet `LICENSE` and `ATTRIBUTION.md`.
+
+### macOS installer layout
+
+The `.pkg` writes the following paths:
+
+| Path                                                             | Source                          |
+|------------------------------------------------------------------|---------------------------------|
+| `/usr/local/zentral/osquery/extensions/osquery-extension.ext`    | the signed universal binary     |
+| `/usr/local/zentral/osquery/extensions.load`                     | [`pkg/extensions.load`](pkg/extensions.load) — tells `osqueryd` which extensions to autoload |
+
+A no-op postinstall script lives at [`pkg/scripts/postinstall`](pkg/scripts/postinstall);
+future logic (e.g. signalling osqueryd to reload) can be added there. The
+`.pkg` itself is built and signed by the `Build, sign, and notarize macOS
+installer (.pkg)` step in the release workflow.
 
 ## Third-party code
 

@@ -1,0 +1,12 @@
+#!/bin/sh
+# postinstall script for the osquery-extension installer.
+#
+# Currently a no-op. Future hooks can go here, e.g.:
+#   - signalling osquery to reload its extensions
+#   - cleaning up files left over from older install paths
+#   - validating that the install path is writable / owned correctly
+#
+# pkgbuild's --scripts directory expects this file to be named exactly
+# "postinstall" (no extension) and to be executable.
+
+exit 0
