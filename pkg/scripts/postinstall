@@ -1,12 +1,11 @@
 #!/bin/sh
 # postinstall script for the osquery-extension installer.
 #
-# Ensures /usr/local/zentral/osquery/flagfile.txt declares the four flags
-# osquery needs to autoload this extension on startup. See:
-#   https://osquery.readthedocs.io/en/stable/deployment/extensions/#auto-loading-extensions
-# If the flagfile content actually changes, reloads the
-# pro.zentral.osqueryd launch daemon (if it is loaded) so the new flags
-# take effect immediately.
+# 1. Ensures /usr/local/zentral/osquery/flagfile.txt declares the four
+#    flags osquery needs to autoload this extension on startup. See:
+#      https://osquery.readthedocs.io/en/stable/deployment/extensions/#auto-loading-extensions
+#
+# 2. Always restarts the pro.zentral.osqueryd launch daemon (if loaded).
 #
 # pkgbuild's --scripts directory requires this file to be named exactly
 # "postinstall" (no extension) and to be executable. Installer.app runs
@@ -22,8 +21,6 @@ LAUNCH_DAEMON_LABEL="pro.zentral.osqueryd"
 
 mkdir -p "$(dirname "$FLAGFILE")"
 [ -f "$FLAGFILE" ] || touch "$FLAGFILE"
-
-ORIG_HASH=$(shasum -a 256 "$FLAGFILE" | awk '{print $1}')
 
 # Append a flag with the given default if the key is not already present
 # in the file (with any value).
@@ -59,22 +56,21 @@ ensure_value   "disable_extensions"  "false"
 
 chmod 0644 "$FLAGFILE"
 
-NEW_HASH=$(shasum -a 256 "$FLAGFILE" | awk '{print $1}')
-
-# Reload the launch daemon only if the flagfile content actually changed
-# AND the daemon plist is installed. kickstart -k restarts a running
-# service; if the daemon is not loaded the kickstart fails silently and
-# the new flags will apply on next launch via the plist's RunAtLoad.
-if [ "$ORIG_HASH" != "$NEW_HASH" ]; then
-    if [ -f "$LAUNCH_DAEMON_PLIST" ]; then
-        if launchctl kickstart -k "system/${LAUNCH_DAEMON_LABEL}" >/dev/null 2>&1; then
-            echo "osquery-extension: flagfile updated; kicked ${LAUNCH_DAEMON_LABEL}"
-        else
-            echo "osquery-extension: flagfile updated; ${LAUNCH_DAEMON_LABEL} not loaded yet"
-        fi
+# Restart osqueryd so it re-spawns the extension child process from
+# the freshly-installed .ext on disk. Extensions are separate child
+# processes that talk to osqueryd over a Thrift socket (not shared
+# libraries loaded into osqueryd), so the old child keeps running with
+# the old bytes until osqueryd exits and re-execs it. kickstart -k
+# restarts the daemon if it's loaded; otherwise the kickstart fails
+# silently and the plist's RunAtLoad will start it later.
+if [ -f "$LAUNCH_DAEMON_PLIST" ]; then
+    if launchctl kickstart -k "system/${LAUNCH_DAEMON_LABEL}" >/dev/null 2>&1; then
+        echo "osquery-extension: restarted ${LAUNCH_DAEMON_LABEL}"
     else
-        echo "osquery-extension: flagfile updated; no daemon plist at ${LAUNCH_DAEMON_PLIST}"
+        echo "osquery-extension: ${LAUNCH_DAEMON_LABEL} not loaded yet; will start via plist RunAtLoad"
     fi
+else
+    echo "osquery-extension: no daemon plist at ${LAUNCH_DAEMON_PLIST}; nothing to reload"
 fi
 
 exit 0
