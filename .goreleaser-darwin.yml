@@ -15,7 +15,11 @@ builds:
     main: ./
     binary: osquery-extension.ext
     env:
-      - CGO_ENABLED=0
+      # -linkmode external requires the external (C) linker, which Go
+      # only invokes when cgo is enabled. macos-latest ships the Xcode
+      # CLI tools, so clang is available out of the box; this repo has
+      # no `import "C"` calls, so enabling cgo only affects link mode.
+      - CGO_ENABLED=1
     goos:
       - darwin
     goarch:
