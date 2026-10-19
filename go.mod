@@ -1,6 +1,8 @@
 module github.com/zentralopensource/osquery-extension
 
-go 1.26.9
+go 1.26.0
+
+toolchain go1.26.9
 
 require (
 	github.com/clbanning/mxj v1.8.4
