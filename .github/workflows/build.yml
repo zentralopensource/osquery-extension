@@ -1,0 +1,66 @@
+---
+name: build
+# Compiles every release target on pull requests, without signing or
+# publishing. release.yml cannot do this: it runs only on v* tags, its
+# build-darwin job needs the Apple signing certificates, and build-others
+# runs `goreleaser release`, which publishes.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile-others:
+    name: compile-others
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build linux + windows
+        uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6.4.0
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          # `build`, not `release`: compiles the targets and stops.
+          args: build --config .goreleaser-others.yml --snapshot --clean
+
+  compile-darwin:
+    name: compile-darwin
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build darwin
+        uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6.4.0
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          # --skip=post-hooks drops the codesign hook on universal_binaries,
+          # which needs APPLE_DEVID_IDENTITY. The `before` hook is kept: it
+          # renders Info.plist, which the darwin ldflags sectcreate into the
+          # binary, so skipping it would fail the build.
+          args: build --config .goreleaser-darwin.yml --snapshot --clean --skip=post-hooks
